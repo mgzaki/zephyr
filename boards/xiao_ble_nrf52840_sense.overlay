@@ -1,0 +1,31 @@
+/*
+ * Custom Devicetree Overlay for Seeed Studio XIAO nRF52840 Sense
+ *
+ * This file is automatically picked up by the Zephyr build system
+ * based on its filename: <board_identifier>.overlay
+ */
+
+/ {
+    /* 
+     * Example: Creating a completely custom dummy node.
+     * You would normally define custom hardware like external I2C 
+     * sensors, custom buttons, or alternate GPIO pin mappings here.
+     */
+    custom_hardware: my_custom_sensor {
+        compatible = "vnd,my-custom-sensor";
+        status = "okay";
+        label = "Custom Sensor Example";
+        /* Example parameter. The C code could read this via DT_PROP(...) */
+        custom-value = <42>;
+    };
+
+    /* 
+     * You can also modify existing nodes defined in the core board devicetree.
+     * For example, if we wanted to override the default console baud rate:
+     */
+    /*
+    &uart0 {
+        current-speed = <9600>;
+    };
+    */
+};

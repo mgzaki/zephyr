@@ -1,8 +1,27 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# Copy this file to /etc/udev/rules.d/
-# If rules fail to reload automatically, you can refresh udev rules
-# with the command "udevadm control --reload"
+#
+# =====================================================================
+# OpenOCD Udev Rules
+# =====================================================================
+# WHY THIS FILE EXISTS:
+# By default, Linux restricts direct access to raw USB devices for security purposes.
+# Without these rules, attempting to flash or debug using OpenOCD and a USB probe (like
+# the XIAO Debug Mate / CMSIS-DAP) will result in a "Permission denied" error unless
+# run with 'sudo' (which is discouraged).
+# To fix this, the 60-openocd.rules file contains a list of definitions (known as udev rules) that tell Linux: 
+# "When this specific debugging hardware is plugged in, grant normal users permission to access it."
+#
+# HOW TO USE THIS FILE:
+# This file does not take effect merely by sitting in your project directory. 
+# It must be copied to the Linux system's udev configuration directory.
+#
+# 1. Copy the file into the rules directory:
+#    sudo cp 60-openocd.rules /etc/udev/rules.d/
+#
+# 2. Reload the rules (or reboot/unplug your device):
+#    sudo udevadm control --reload
+#    sudo udevadm trigger
+# =====================================================================
 
 ACTION!="add|change", GOTO="openocd_rules_end"
 
