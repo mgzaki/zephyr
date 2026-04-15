@@ -32,13 +32,30 @@ Your board must:
 Building and Running
 ********************
 
-Build and flash Blinky as follows, changing ``reel_board`` for your board:
+Build and flash Blinky for the Seeed Studio XIAO nRF52840 Sense using the provided ``manage_device.sh`` script. This script acts as a universally reusable tool for managing Zephyr builds and flashing via the XIAO Debug Mate (CMSIS-DAP debugger).
 
-.. zephyr-app-commands::
-   :zephyr-app: samples/basic/blinky
-   :board: reel_board
-   :goals: build flash
-   :compact:
+First, make exactly sure the script is executable:
+
+.. code-block:: console
+
+   $ chmod +x manage_device.sh
+
+Usage of ``manage_device.sh``:
+
+- To build the application:
+  ``./manage_device.sh build``
+
+- To flash it to the XIAO nRF52840:
+  ``./manage_device.sh flash``
+
+- To build and flash the application in one step:
+  ``./manage_device.sh run``
+
+- To start an interactive debug session via GDB:
+  ``./manage_device.sh debug``
+
+- To clean the build directory:
+  ``./manage_device.sh clean``
 
 After flashing, the LED starts to blink and messages with the current LED state
 are printed on the console. If a runtime error occurs, the sample exits without
