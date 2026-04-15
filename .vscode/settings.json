@@ -1,0 +1,10 @@
+{
+    "nrf-connect.buildConfigurations": {
+        "build": {
+            "board": "xiao_ble/nrf52840/sense",
+            "kconfig": "",
+            "overlay": "",
+            "task": "build"
+        }
+    }
+}

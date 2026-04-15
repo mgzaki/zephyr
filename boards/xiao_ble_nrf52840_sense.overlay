@@ -6,9 +6,9 @@
  */
 
 / {
-    /* 
+    /*
      * Example: Creating a completely custom dummy node.
-     * You would normally define custom hardware like external I2C 
+     * You would normally define custom hardware like external I2C
      * sensors, custom buttons, or alternate GPIO pin mappings here.
      */
     custom_hardware: my_custom_sensor {
@@ -19,7 +19,7 @@
         custom-value = <42>;
     };
 
-    /* 
+    /*
      * You can also modify existing nodes defined in the core board devicetree.
      * For example, if we wanted to override the default console baud rate:
      */
@@ -27,5 +27,7 @@
     &uart0 {
         current-speed = <9600>;
     };
-    */
+     */
 };
+
+
