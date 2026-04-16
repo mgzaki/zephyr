@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Visual Debug (OpenOCD)",
+            "cwd": "${workspaceFolder}",
+            "executable": "./build/blinky/zephyr/zephyr.elf",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "device": "nRF52840_xxAA",
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/nrf52.cfg"
+            ],
+            "runToEntryPoint": "main",
+            "showDevDebugOutput": "raw",
+            "gdbPath": "/home/msamory/zephyr-sdk-0.16.8/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb"
+        }
+    ]
+}

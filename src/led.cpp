@@ -1,29 +1,37 @@
 #include "led.h"
 
-Led::Led(const struct gpio_dt_spec& led_spec) : spec(led_spec) {}
+Led::Led(const struct pwm_dt_spec& led_spec) : spec(led_spec), is_on(false) {}
 
 bool Led::init() {
-    if (!gpio_is_ready_dt(&spec)) {
+    if (!pwm_is_ready_dt(&spec)) {
         return false;
     }
-    if (gpio_pin_configure_dt(&spec, GPIO_OUTPUT_ACTIVE) < 0) {
-        return false;
-    }
+    /* Start with LED off */
+    pwm_set_pulse_dt(&spec, 0);
     return true;
 }
 
-void Led::set_state(bool is_on) {
-    gpio_pin_set_dt(&spec, is_on ? 1 : 0);
+void Led::set_brightness(uint8_t percent) {
+    if (percent > 100) {
+        percent = 100;
+    }
+    uint32_t pulse = (uint32_t)(spec.period / 100U) * percent;
+    pwm_set_pulse_dt(&spec, pulse);
+    is_on = (percent > 0);
 }
 
 void Led::off() {
-    set_state(false);
+    set_brightness(0);
 }
 
 void Led::on() {
-    set_state(true);
+    set_brightness(100);
 }
 
 void Led::toggle() {
-    gpio_pin_toggle_dt(&spec);
+    if (is_on) {
+        off();
+    } else {
+        on();
+    }
 }

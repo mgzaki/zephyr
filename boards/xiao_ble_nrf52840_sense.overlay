@@ -3,31 +3,76 @@
  *
  * This file is automatically picked up by the Zephyr build system
  * based on its filename: <board_identifier>.overlay
+ *
+ * PWM is used here so all three RGB LEDs can be dimmed independently.
+ * PWM0 channels 0-2 are mapped to the same GPIO pins as the board's
+ * built-in led0/led1/led2 (P0.26 red, P0.30 green, P0.06 blue).
  */
 
-/ {
-    /*
-     * Example: Creating a completely custom dummy node.
-     * You would normally define custom hardware like external I2C
-     * sensors, custom buttons, or alternate GPIO pin mappings here.
-     */
-    custom_hardware: my_custom_sensor {
-        compatible = "vnd,my-custom-sensor";
-        status = "okay";
-        label = "Custom Sensor Example";
-        /* Example parameter. The C code could read this via DT_PROP(...) */
-        custom-value = <42>;
+/* Disable the plain GPIO leds node to avoid pin conflicts with PWM. */
+&led0 { status = "disabled"; };
+&led1 { status = "disabled"; };
+&led2 { status = "disabled"; };
+
+/* Configure PWM0 pin-control states for the three LED pins. */
+&pinctrl {
+    pwm0_default: pwm0_default {
+        group1 {
+            psels = <NRF_PSEL(PWM_OUT0, 0, 26)>,   /* Red   – P0.26 */
+                    <NRF_PSEL(PWM_OUT1, 0, 30)>,   /* Green – P0.30 */
+                    <NRF_PSEL(PWM_OUT2, 0, 6)>;    /* Blue  – P0.06 */
+            nordic,invert; /* LEDs are active-low */
+        };
     };
 
-    /*
-     * You can also modify existing nodes defined in the core board devicetree.
-     * For example, if we wanted to override the default console baud rate:
-     */
-    /*
-    &uart0 {
-        current-speed = <9600>;
+    pwm0_sleep: pwm0_sleep {
+        group1 {
+            psels = <NRF_PSEL(PWM_OUT0, 0, 26)>,
+                    <NRF_PSEL(PWM_OUT1, 0, 30)>,
+                    <NRF_PSEL(PWM_OUT2, 0, 6)>;
+            low-power-enable;
+        };
     };
-     */
+};
+
+/* Enable PWM0 with the pinctrl states defined above. */
+&pwm0 {
+    status = "okay";
+    pinctrl-0 = <&pwm0_default>;
+    pinctrl-1 = <&pwm0_sleep>;
+    pinctrl-names = "default", "sleep";
+};
+
+/ {
+    /* PWM LED nodes – one per colour channel. */
+    pwmleds {
+        compatible = "pwm-leds";
+
+        pwm_led0: pwm_led_0 {
+            pwms = <&pwm0 0 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
+            label = "Red LED";
+        };
+
+        pwm_led1: pwm_led_1 {
+            pwms = <&pwm0 1 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
+            label = "Green LED";
+        };
+
+        pwm_led2: pwm_led_2 {
+            pwms = <&pwm0 2 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
+            label = "Blue LED";
+        };
+    };
+
+    aliases {
+        pwm-led0 = &pwm_led0;
+        pwm-led1 = &pwm_led1;
+        pwm-led2 = &pwm_led2;
+    };
 };
 
 
+
+&timer3 {
+    status = "okay";
+};

@@ -54,8 +54,47 @@ Usage of ``manage_device.sh``:
 - To start an interactive debug session via GDB:
   ``./manage_device.sh debug``
 
+- To configure VS Code for visual debugging (Cortex-Debug):
+  ``./manage_device.sh setup-debug``
+
 - To clean the build directory:
   ``./manage_device.sh clean``
+
+Visual Debugging with VS Code
+=============================
+
+The ``setup-debug`` command auto-configures everything needed for visual debugging
+in VS Code using the `Cortex-Debug <https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug>`_ extension.
+
+Run it once (or any time your environment changes):
+
+.. code-block:: console
+
+   $ ./manage_device.sh setup-debug
+
+This will:
+
+#. **Find a working ARM GDB** — searches Zephyr SDK installations under ``$HOME``,
+   then ``gdb-multiarch`` and ``arm-none-eabi-gdb`` on ``$PATH``. Snap-confined
+   binaries are automatically skipped because they lack the network access needed
+   to connect to OpenOCD.
+#. **Locate the built ELF** — checks both sysbuild (``build/*/zephyr/zephyr.elf``)
+   and standard (``build/zephyr/zephyr.elf``) layouts.
+#. **Derive the OpenOCD target** from the ``BOARD`` variable (supports nRF52, nRF53,
+   nRF91, and STM32 families out of the box).
+#. **Install udev rules** if the project contains ``60-openocd.rules`` and it has not
+   yet been copied to ``/etc/udev/rules.d/`` (requires ``sudo``).
+#. **Kill stale OpenOCD processes** that would block the GDB server port.
+#. **Generate** ``.vscode/launch.json`` with all the correct, machine-specific paths.
+
+After the command completes, press **F5** in VS Code to start a debug session.
+
+The command is portable — it works in any Zephyr project directory and adapts to
+the local toolchain installation. Override the board with:
+
+.. code-block:: console
+
+   $ BOARD=nrf52840dk_nrf52840 ./manage_device.sh setup-debug
 
 After flashing, the LED starts to blink and messages with the current LED state
 are printed on the console. If a runtime error occurs, the sample exits without
