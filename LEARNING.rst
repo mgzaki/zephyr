@@ -100,3 +100,44 @@ Zephyr draws a very strict line between **Software** and **Hardware**. You gener
 **How they interact (The Catch):**
 - If Devicetree is **ON** (``okay``) but Kconfig is **OFF** (``n``): The hardware is technically registered, but if your C code tries to call a driver function, the compiler throws an "undefined reference" error because the software driver code was excluded from the build.
 - If Kconfig is **ON** (``y``) but Devicetree is **OFF** (``disabled``): The software driver compiles effortlessly and takes up RAM/ROM. However, when the driver initializes, it looks at the Devicetree, sees no hardware exists, and immediately goes to sleep. You've wasted memory.
+
+
+6. Never use ``BT_DATA_BYTES()`` in C++ files
+**********************************************
+
+**Point of Confusion:**
+Using the Zephyr ``BT_DATA_BYTES()`` macro in a ``.cpp`` file and getting the runtime error ``"Too big advertising data"`` even though the packet looks well within the 31-byte BLE limit.
+
+**Explanation:**
+``BT_DATA_BYTES()`` is defined in ``<zephyr/bluetooth/bluetooth.h>`` as:
+
+.. code-block:: c
+
+   #define BT_DATA_BYTES(_type, _bytes...) \
+       BT_DATA(_type, ((uint8_t []) { _bytes }), sizeof((uint8_t []) { _bytes }))
+
+The key part is ``(uint8_t []){ _bytes }`` — this is a **C compound literal**. In standard C, it works
+perfectly: ``sizeof((uint8_t[]){ 0x06 })`` evaluates to **1**.
+
+Compound literals are **not part of the C++ standard**. GCC accepts them as a compiler extension, but
+inside aggregate initializer lists (such as an array of ``struct bt_data``), the ``sizeof()`` evaluation
+can produce a garbage value. The result is that the BLE stack sees the flags entry as far larger than
+1 byte and rejects the entire advertising payload with ``-EINVAL``.
+
+This bug is silent at compile time — no warnings, no errors. It only manifests at **runtime** when
+``bt_le_adv_start()`` returns ``-22`` (``EINVAL``) and the log prints ``"Too big advertising data"``.
+
+**Resolution:**
+Replace ``BT_DATA_BYTES()`` with ``BT_DATA()`` and an explicit variable:
+
+.. code-block:: cpp
+
+   // BROKEN in C++ — sizeof is unreliable:
+   BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)
+
+   // CORRECT — sizeof(flags) is always 1:
+   uint8_t flags = BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR;
+   BT_DATA(BT_DATA_FLAGS, &flags, sizeof(flags))
+
+**Rule of thumb:** In ``.cpp`` files, never use any Zephyr macro that internally creates a compound
+literal (the ``(type[]){ ... }`` syntax). Always use a named variable instead.

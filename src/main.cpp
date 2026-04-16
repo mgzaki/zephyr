@@ -1,63 +1,74 @@
-/*
- * Copyright (c) 2016 Intel Corporation
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
-#include <stdio.h>
 #include <zephyr/kernel.h>
-#include <zephyr/sys/util.h> /* Gives us access to ARRAY_SIZE macro */
+#include <zephyr/sys/util.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/logging/log.h>
 
-#include "led.h" /* Import our modular LED class */
+#include "bluetooth.h"
+#include "led.h"
 
-/* Step size and delay used for the fade sweep */
-#define FADE_STEP_PERCENT  5
-#define FADE_STEP_MS       20
+LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
-/* The devicetree node identifiers for the PWM LED aliases. */
-#define LED0_NODE DT_ALIAS(pwm_led0)
-#define LED1_NODE DT_ALIAS(pwm_led1)
-#define LED2_NODE DT_ALIAS(pwm_led2)
+/* ── LEDs ─────────────────────────────────────────── */
 
-int main(void) {
-    /* Instantiate our C++ LED Objects from the PWM Devicetree specs */
-    Led leds[] = {
-        Led(PWM_DT_SPEC_GET(LED0_NODE)),
-        Led(PWM_DT_SPEC_GET(LED1_NODE)),
-        Led(PWM_DT_SPEC_GET(LED2_NODE))
-    };
+#define FADE_STEP  5   /* brightness increment (%) */
+#define FADE_MS   20   /* delay per step (ms)      */
 
-    const int num_leds = ARRAY_SIZE(leds);
+static Led leds[] = {
+    Led(PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0))),
+    Led(PWM_DT_SPEC_GET(DT_ALIAS(pwm_led1))),
+    Led(PWM_DT_SPEC_GET(DT_ALIAS(pwm_led2))),
+};
 
-    /* Initialize all LEDs */
-    for (int i = 0; i < num_leds; i++) {
-        if (!leds[i].init()) {
-            printf("Error initializing LED %d\n", i);
-            return 0;
-        }
+static bool init_leds()
+{
+    for (int i = 0; i < ARRAY_SIZE(leds); i++) {
+        if (!leds[i].init()) return false;
     }
+    return true;
+}
 
-    printf("Starting PWM LED dimming chaser...\n");
+static void fade_led(int i)
+{
+    for (int b = 0;   b <= 100; b += FADE_STEP) { leds[i].set_brightness(b); k_msleep(FADE_MS); }
+    for (int b = 100; b >= 0;   b -= FADE_STEP) { leds[i].set_brightness(b); k_msleep(FADE_MS); }
+}
 
-    int active = 0;
+/* ── Sensor ───────────────────────────────────────── */
 
+static const struct device *temp_dev;
+
+static bool init_sensor()
+{
+    temp_dev = DEVICE_DT_GET_ANY(nordic_nrf_temp);
+    return device_is_ready(temp_dev);
+}
+
+static int32_t read_temperature()
+{
+    struct sensor_value v;
+    sensor_sample_fetch(temp_dev);
+    sensor_channel_get(temp_dev, SENSOR_CHAN_DIE_TEMP, &v);
+    return v.val1;
+}
+
+/* ── Main ─────────────────────────────────────────── */
+
+int main()
+{
+    LOG_INF("Starting thermometer...");
+
+    if (!init_leds())   { LOG_ERR("LED init failed");    return 0; }
+    if (!init_sensor())  { LOG_ERR("Sensor init failed"); return 0; }
+
+    Bluetooth ble;
+    if (ble.init()) { LOG_ERR("BLE init failed"); return 0; }
+
+    int led = 0;
     while (1) {
-        /* Fade the active LED in from 0 % to 100 % */
-        for (int b = 0; b <= 100; b += FADE_STEP_PERCENT) {
-            leds[active].set_brightness(b);
-            k_msleep(FADE_STEP_MS);
-        }
-
-        /* Fade it back out to 0 % */
-        for (int b = 100; b >= 0; b -= FADE_STEP_PERCENT) {
-            leds[active].set_brightness(b);
-            k_msleep(FADE_STEP_MS);
-        }
-
-        /* Advance to the next LED */
-        active = (active + 1) % num_leds;
+        ble.update_temperature(read_temperature());
+        fade_led(led);
+        led = (led + 1) % ARRAY_SIZE(leds);
     }
-
-    return 0;
 }
 

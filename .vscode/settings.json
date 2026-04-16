@@ -2,5 +2,6 @@
     "workbench.editorAssociations": {
         "*.overlay": "devicetree.editor",
         "*.dts": "devicetree.editor"
-    }
+    },
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/blinky/compile_commands.json"
 }
