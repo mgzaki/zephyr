@@ -48,6 +48,29 @@ LOG_MODULE_REGISTER(bt_class, LOG_LEVEL_INF);
  */
 static alert_callback_t g_alert_cb = nullptr;
 
+/* ── Brightness level ────────────────────────────────────────────────────
+ *
+ * This variable holds the LED brightness (0–100) written by the phone.
+ * It is used as user_data for the brightness characteristic, so the
+ * write handler stores the phone's value directly here.
+ */
+static uint8_t g_brightness_level = 0;
+
+/*
+ * bt_get_brightness() — Returns the current brightness (0–100).
+ *
+ * Called from main.cpp's main loop to read the latest value the phone
+ * wrote to the Brightness characteristic.  The value is updated in
+ * interrupt/BLE context by write_brightness(), so reads here are
+ * effectively "last written value" semantics.
+ *
+ * Returns: 0 if no brightness has been set (default idle fade),
+ *          1–100 for a fixed brightness percentage.
+ */
+uint8_t bt_get_brightness(void) {
+    return g_brightness_level;
+}
+
 /* ── GATT write handler ─────────────────────────────────────────────────
  *
  * This is the callback Zephyr invokes whenever a connected BLE central
@@ -57,7 +80,7 @@ static alert_callback_t g_alert_cb = nullptr;
  *   conn   – the BLE connection that sent the write
  *   attr   – pointer to the GATT attribute being written
  *   buf    – pointer to the raw bytes the phone sent
- *   len    – number of bytes written (must be exactly 1 for alert level)
+ *   len    – number of bytes received (must be exactly 1 for alert level)
  *   offset – byte offset (unused here, always 0 for simple writes)
  *   flags  – write flags (e.g. BT_GATT_WRITE_FLAG_PREPARE)
  *
@@ -96,6 +119,70 @@ static ssize_t write_alert_level(struct bt_conn *conn,
     return len;  /* Tell Zephyr we consumed all bytes successfully. */
 }
 
+/* ── Custom UUID for the Brightness characteristic ──────────────────────
+ *
+ * No standard BLE UUID exists for "brightness", so we define a custom
+ * 128-bit UUID.  The phone app must know this UUID to discover and
+ * write to it.
+ */
+#define BT_UUID_BRIGHTNESS_VAL BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
+#define BT_UUID_BRIGHTNESS BT_UUID_DECLARE_128(BT_UUID_BRIGHTNESS_VAL)
+
+/* ── Brightness write handler ───────────────────────────────────────────
+ *
+ * write_brightness() — GATT write callback for the Brightness characteristic.
+ *
+ * This function is invoked by Zephyr's BLE stack whenever a connected
+ * phone writes to the custom Brightness characteristic (128-bit UUID
+ * defined above as BT_UUID_BRIGHTNESS).
+ *
+ * How user_data makes this work:
+ *   In the BT_GATT_CHARACTERISTIC declaration below, the last argument
+ *   is &g_brightness_level.  Zephyr stores that pointer in attr->user_data.
+ *   When the phone writes, this handler casts attr->user_data back to a
+ *   uint8_t* and stores the value there.  This means:
+ *     - The handler doesn't hardcode which variable to write to.
+ *     - You could reuse this same handler for other single-byte
+ *       characteristics by passing a different variable as user_data.
+ *
+ * Parameters (all supplied by the Zephyr GATT stack):
+ *   conn   – the BLE connection that sent the write
+ *   attr   – pointer to the GATT attribute being written;
+ *            attr->user_data points to g_brightness_level
+ *   buf    – pointer to the raw byte(s) the phone sent
+ *   len    – number of bytes received (must be exactly 1)
+ *   offset – byte offset (unused, always 0 for simple writes)
+ *   flags  – write flags (e.g. BT_GATT_WRITE_FLAG_PREPARE)
+ *
+ * Validation:
+ *   - Rejects writes that aren't exactly 1 byte.
+ *   - Clamps values above 100 down to 100 (valid range: 0–100).
+ *
+ * Returns: number of bytes consumed (1) on success,
+ *          or BT_GATT_ERR(...) on invalid input.
+ */
+static ssize_t write_brightness(struct bt_conn *conn,
+                                const struct bt_gatt_attr *attr,
+                                const void *buf,
+                                uint16_t len,
+                                uint16_t offset,
+                                uint8_t flags) {
+    if (len != 1) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    uint8_t value = *((uint8_t *)buf);
+    if (value > 100) {
+        value = 100;  /* Clamp to valid brightness range */
+    }
+
+    uint8_t *target = (uint8_t *)attr->user_data;
+    *target = value;
+
+    LOG_INF("Brightness set to: %d", value);
+    return len;
+}
+
 /* ── GATT service definition ────────────────────────────────────────────
  *
  * BT_GATT_SERVICE_DEFINE is a Zephyr macro that statically registers a
@@ -121,7 +208,13 @@ BT_GATT_SERVICE_DEFINE(ias_svc,
                            BT_GATT_PERM_WRITE,
                            NULL, 
                            write_alert_level, 
-                           NULL)
+                           NULL),
+    BT_GATT_CHARACTERISTIC(BT_UUID_BRIGHTNESS,
+                           BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+                           BT_GATT_PERM_WRITE,
+                           NULL,
+                           write_brightness,
+                           &g_brightness_level)  /* ◄── user_data */
 );
 
 /* ── Advertising parameters ─────────────────────────────────────────────

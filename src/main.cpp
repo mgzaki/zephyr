@@ -95,10 +95,17 @@ int main() {
                 set_leds_brightness(0);
                 k_msleep(50);
         } else {
-            // Normal idle fade
-            fade_led(led_idx);
-            led_idx = (led_idx + 1) % ARRAY_SIZE(leds);
-            k_msleep(500); // Wait a half-second between LED sweeps
+            // Normal idle: use brightness from phone (0 = fade, 1-100 = fixed)
+            uint8_t brightness = bt_get_brightness();
+            if (brightness > 0) {
+                set_leds_brightness(brightness);
+                k_msleep(100);
+            } else {
+                // Default idle fade
+                fade_led(led_idx);
+                led_idx = (led_idx + 1) % ARRAY_SIZE(leds);
+                k_msleep(500);
+            }
         }
     }
 }
