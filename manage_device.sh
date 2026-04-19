@@ -33,6 +33,7 @@ function print_usage() {
     echo "  run         - Build the application and then flash it"
     echo "  debug       - Start an interactive debug session using OpenOCD and GDB"
     echo "  setup-debug - Configure VS Code for visual debugging (Cortex-Debug)"
+    echo "  log         - Start an RTT console to view live logs from the device"
     echo "  clean       - Remove the 'build/' and 'build_1/' directories to start fresh"
     echo ""
     echo "Arguments:"
@@ -255,6 +256,43 @@ case "$COMMAND" in
         ;;
     setup-debug)
         setup_debug
+        ;;
+    log)
+        echo "=> Starting RTT log viewer (Ctrl+C to stop)..."
+        # Kill any leftover OpenOCD so we can grab the probe
+        pkill -x openocd 2>/dev/null || true
+        sleep 0.5
+
+        RTT_PORT=9090
+
+        # Start OpenOCD in the background with RTT enabled.
+        # rtt setup <address> <size> <ID>  — tells OpenOCD where the
+        #   SEGGER RTT control block lives in RAM.
+        # rtt start                        — begins reading the RTT ring buffer.
+        # rtt server start <port> <channel> — exposes channel 0 as a TCP server.
+        openocd \
+            -f interface/cmsis-dap.cfg \
+            -c "transport select swd" \
+            -c "adapter speed 1000" \
+            -f target/nrf52.cfg \
+            -c "init" \
+            -c "rtt setup 0x20000000 0x40000 \"SEGGER RTT\"" \
+            -c "rtt start" \
+            -c "rtt server start ${RTT_PORT} 0" &
+        OPENOCD_PID=$!
+
+        # Give OpenOCD a moment to start and find the RTT control block
+        sleep 2
+
+        echo "=> Connected.  Log output:"
+        echo "──────────────────────────────────────"
+
+        # Stream RTT output until the user hits Ctrl+C
+        trap 'kill $OPENOCD_PID 2>/dev/null; exit 0' INT TERM
+        nc localhost ${RTT_PORT} || telnet localhost ${RTT_PORT} || true
+
+        # Clean up when done
+        kill $OPENOCD_PID 2>/dev/null || true
         ;;
     clean)
         echo "=> Cleaning build directories in '$PWD'..."

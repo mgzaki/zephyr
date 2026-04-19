@@ -6,14 +6,30 @@
 
 #include "bluetooth.h"
 #include "led.h"
+#include "imu.h" // <-- NEW: Include your IMU class
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
-/* ── Global State ─────────────────────────────────── */
-volatile uint8_t current_alert_level = 0;
+/* ── Global Objects ───────────────────────────────── */
+Bluetooth ble;
+Imu board_imu; // <-- NEW: Instantiate the IMU
 
+/* ── IPC: Message Queue ───────────────────────────── */
+struct system_state_msg {
+    uint8_t alert_level;
+    uint8_t brightness;
+};
+
+K_MSGQ_DEFINE(state_msgq, sizeof(struct system_state_msg), 10, 4);
+
+/* ── Bluetooth Callbacks ──────────────────────────── */
 void on_alert_received(uint8_t level) {
-    current_alert_level = level;
+    struct system_state_msg msg;
+    msg.alert_level = level;
+    // Assuming bt_get_brightness() is defined in your bluetooth.h/cpp
+    // If not, just set msg.brightness = 0 for now!
+    msg.brightness = 0; 
+    k_msgq_put(&state_msgq, &msg, K_NO_WAIT);
 }
 
 /* ── LEDs ─────────────────────────────────────────── */
@@ -40,20 +56,23 @@ static void set_leds_brightness(uint8_t brightness) {
 }
 
 static void fade_led(int ledIdx) {
+    // A quick way to peek at the queue without removing the message
+    struct system_state_msg peek_msg;
+    
     for (int b = 0; b <= 100; b += FADE_STEP) { 
-        if (current_alert_level > 0) return; // Abort fade if alerting!
+        if (k_msgq_peek(&state_msgq, &peek_msg) == 0 && peek_msg.alert_level > 0) return;
         leds[ledIdx].set_brightness(b); k_msleep(FADE_MS); 
     }
     for (int b = 100; b >= 0; b -= FADE_STEP) { 
-        if (current_alert_level > 0) return; // Abort fade if alerting!
+        if (k_msgq_peek(&state_msgq, &peek_msg) == 0 && peek_msg.alert_level > 0) return;
         leds[ledIdx].set_brightness(b); k_msleep(FADE_MS); 
     }
 }
 
-/* ── Temperature Sensor ───────────────────────────────────────── */
+/* ── Temperature Sensor ───────────────────────────── */
 static const struct device *temp_dev;
-// Initialize the Nordic temperature sensor
-static bool init_sensor() {
+
+static bool init_temp_sensor() {
     temp_dev = DEVICE_DT_GET_ANY(nordic_nrf_temp);
     return device_is_ready(temp_dev);
 }
@@ -65,47 +84,71 @@ static int32_t read_temperature() {
     return v.val1;
 }
 
-/* ── Main ─────────────────────────────────────────── */
-int main() {
-    LOG_INF("Starting Two-Way Tracker...");
-
-    if (!init_leds())   { LOG_ERR("LED init failed");    return 0; }
-    if (!init_sensor()) { LOG_ERR("Sensor init failed"); return 0; }
-
-    Bluetooth ble;
-    ble.set_alert_callback(on_alert_received);
-    if (ble.init()) { LOG_ERR("BLE init failed"); return 0; }
-
-    int led_idx = 0;
+/* ── Thread 1: Sensor & Bluetooth Updater ─────────── */
+void sensor_thread_func(void *arg1, void *arg2, void *arg3) {
     while (1) {
-        ble.update_temperature(read_temperature());
+        if (device_is_ready(temp_dev)) {
+            ble.update_temperature(read_temperature());
+        }
+        k_msleep(2000);
+    }
+}
+K_THREAD_DEFINE(sensor_tid, 1024, sensor_thread_func, NULL, NULL, NULL, 7, 0, 0);
 
-        // STATE MACHINE: Normal mode vs Alert Mode
-        if (current_alert_level == 1) {
-            // STROBE ALL LEDs!
-            set_leds_brightness(100);
-            k_msleep(100);
-            set_leds_brightness(0);
-            k_msleep(100);
-            
-        } else if (current_alert_level == 2) {
-                // HIGH ALERT: STROBE FASTER
-                set_leds_brightness(100);
-                k_msleep(50);
-                set_leds_brightness(0);
-                k_msleep(50);
+/* ── Thread 2: IMU Accelerometer Reader ───────────── */
+void imu_thread_func(void *arg1, void *arg2, void *arg3) {
+    while (1) {
+        double ax = 0, ay = 0, az = 0;
+        board_imu.read_acceleration(ax, ay, az);
+        LOG_INF("IMU | X: %7.2f | Y: %7.2f | Z: %7.2f", ax, ay, az);
+        k_msleep(50);
+    }
+}
+K_THREAD_DEFINE(imu_tid, 2048, imu_thread_func, NULL, NULL, NULL, 7, 0, 0);
+
+/* ── Thread 3: LED State Machine ──────────────────── */
+void led_thread_func(void *arg1, void *arg2, void *arg3) {
+    int led_idx = 0;
+    struct system_state_msg current_state = {0, 0}; 
+
+    while (1) {
+        struct system_state_msg new_msg;
+        if (k_msgq_get(&state_msgq, &new_msg, K_NO_WAIT) == 0) {
+            current_state = new_msg;
+        }
+
+        if (current_state.alert_level == 1) {
+            set_leds_brightness(100); k_msleep(100);
+            set_leds_brightness(0);   k_msleep(100);
+        } else if (current_state.alert_level == 2) {
+            set_leds_brightness(100); k_msleep(50);
+            set_leds_brightness(0);   k_msleep(50);
         } else {
-            // Normal idle: use brightness from phone (0 = fade, 1-100 = fixed)
-            uint8_t brightness = bt_get_brightness();
-            if (brightness > 0) {
-                set_leds_brightness(brightness);
+            if (current_state.brightness > 0) {
+                set_leds_brightness(current_state.brightness);
                 k_msleep(100);
             } else {
-                // Default idle fade
                 fade_led(led_idx);
                 led_idx = (led_idx + 1) % ARRAY_SIZE(leds);
                 k_msleep(500);
             }
         }
     }
+}
+K_THREAD_DEFINE(led_tid, 1024, led_thread_func, NULL, NULL, NULL, 7, 0, 0);
+
+/* ── Main ─────────────────────────────────────────── */
+int main() {
+    LOG_INF("Starting RTOS with I2C IMU...");
+
+    if (!init_leds())        { LOG_ERR("LED init failed");    return 0; }
+    if (!init_temp_sensor()) { LOG_ERR("Temp init failed");   return 0; }
+    
+    // Initialize our new I2C hardware
+    if (!board_imu.init())   { LOG_ERR("IMU init failed");    return 0; }
+
+    ble.set_alert_callback(on_alert_received);
+    if (ble.init())          { LOG_ERR("BLE init failed");    return 0; }
+
+    return 0;
 }
