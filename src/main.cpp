@@ -26,9 +26,7 @@ K_MSGQ_DEFINE(state_msgq, sizeof(struct system_state_msg), 10, 4);
 void on_alert_received(uint8_t level) {
     struct system_state_msg msg;
     msg.alert_level = level;
-    // Assuming bt_get_brightness() is defined in your bluetooth.h/cpp
-    // If not, just set msg.brightness = 0 for now!
-    msg.brightness = 0; 
+    msg.brightness = bt_get_brightness(); 
     k_msgq_put(&state_msgq, &msg, K_NO_WAIT);
 }
 
@@ -61,10 +59,12 @@ static void fade_led(int ledIdx) {
     
     for (int b = 0; b <= 100; b += FADE_STEP) { 
         if (k_msgq_peek(&state_msgq, &peek_msg) == 0 && peek_msg.alert_level > 0) return;
+        if (bt_get_brightness() > 0) return;
         leds[ledIdx].set_brightness(b); k_msleep(FADE_MS); 
     }
     for (int b = 100; b >= 0; b -= FADE_STEP) { 
         if (k_msgq_peek(&state_msgq, &peek_msg) == 0 && peek_msg.alert_level > 0) return;
+        if (bt_get_brightness() > 0) return;
         leds[ledIdx].set_brightness(b); k_msleep(FADE_MS); 
     }
 }
@@ -116,6 +116,8 @@ void led_thread_func(void *arg1, void *arg2, void *arg3) {
         if (k_msgq_get(&state_msgq, &new_msg, K_NO_WAIT) == 0) {
             current_state = new_msg;
         }
+
+        current_state.brightness = bt_get_brightness();
 
         if (current_state.alert_level == 1) {
             set_leds_brightness(100); k_msleep(100);
