@@ -15,9 +15,9 @@
  */
 
 #include "bluetooth.h"
-#include <zephyr/bluetooth/bluetooth.h>  /* bt_enable, bt_le_adv_* */
-#include <zephyr/bluetooth/uuid.h>       /* BT_UUID_IAS, BT_UUID_ALERT_LEVEL */
-#include <zephyr/bluetooth/gatt.h>       /* BT_GATT_SERVICE_DEFINE, etc. */
+#include <zephyr/bluetooth/bluetooth.h> /* bt_enable, bt_le_adv_* */
+#include <zephyr/bluetooth/gatt.h>      /* BT_GATT_SERVICE_DEFINE, etc. */
+#include <zephyr/bluetooth/uuid.h>      /* BT_UUID_IAS, BT_UUID_ALERT_LEVEL */
 #include <zephyr/logging/log.h>
 
 /* Register a log module named "bt_class" so log messages from this file
@@ -38,11 +38,8 @@ LOG_MODULE_REGISTER(bt_class, LOG_LEVEL_INF);
  *   Phone app  ──(BLE write)──►  write_alert_level()
  *                                   │
  *                                   ▼
- *                              g_alert_cb(level)      ◄── set by set_alert_callback()
- *                                   │
- *                                   ▼
- *                          on_alert_received()        ◄── defined in main.cpp
- *                                   │
+ *                              g_alert_cb(level)      ◄── set by
+ * set_alert_callback() │ ▼ on_alert_received()        ◄── defined in main.cpp │
  *                                   ▼
  *                          current_alert_level = level ◄── global in main.cpp
  */
@@ -67,9 +64,7 @@ static uint8_t g_brightness_level = 0;
  * Returns: 0 if no brightness has been set (default idle fade),
  *          1–100 for a fixed brightness percentage.
  */
-uint8_t bt_get_brightness(void) {
-    return g_brightness_level;
-}
+uint8_t bt_get_brightness(void) { return g_brightness_level; }
 
 /* ── GATT write handler ─────────────────────────────────────────────────
  *
@@ -93,30 +88,28 @@ uint8_t bt_get_brightness(void) {
  */
 static ssize_t write_alert_level(struct bt_conn *conn,
                                  const struct bt_gatt_attr *attr,
-                                 const void *buf,
-                                 uint16_t len,
-                                 uint16_t offset,
+                                 const void *buf, uint16_t len, uint16_t offset,
                                  uint8_t flags) {
-    /* The Alert Level characteristic is exactly 1 byte.
-     * Reject any write that doesn't match. */
-    if (len != 1) {
-        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
-    }
+  /* The Alert Level characteristic is exactly 1 byte.
+   * Reject any write that doesn't match. */
+  if (len != 1) {
+    return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+  }
 
-    /* Extract the single-byte alert level from the write buffer. */
-    uint8_t level = *((uint8_t *)buf);
-    LOG_INF("Phone sent Alert Level: %d", level);
+  /* Extract the single-byte alert level from the write buffer. */
+  uint8_t level = *((uint8_t *)buf);
+  LOG_INF("Phone sent Alert Level: %d", level);
 
-    /* Forward the alert level to the application via the registered callback.
-     * This is where the alert actually reaches your application code —
-     * g_alert_cb points to on_alert_received() in main.cpp, which sets
-     * the global current_alert_level variable.  The main loop checks that
-     * variable every iteration and switches to strobe mode when it's > 0. */
-    if (g_alert_cb) {
-        g_alert_cb(level);  /* ◄── ALERT IS DELIVERED TO THE APP HERE */
-    }
+  /* Forward the alert level to the application via the registered callback.
+   * This is where the alert actually reaches your application code —
+   * g_alert_cb points to on_alert_received() in main.cpp, which sets
+   * the global current_alert_level variable.  The main loop checks that
+   * variable every iteration and switches to strobe mode when it's > 0. */
+  if (g_alert_cb) {
+    g_alert_cb(level); /* ◄── ALERT IS DELIVERED TO THE APP HERE */
+  }
 
-    return len;  /* Tell Zephyr we consumed all bytes successfully. */
+  return len; /* Tell Zephyr we consumed all bytes successfully. */
 }
 
 /* ── Custom UUID for the Brightness characteristic ──────────────────────
@@ -125,7 +118,8 @@ static ssize_t write_alert_level(struct bt_conn *conn,
  * 128-bit UUID.  The phone app must know this UUID to discover and
  * write to it.
  */
-#define BT_UUID_BRIGHTNESS_VAL BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
+#define BT_UUID_BRIGHTNESS_VAL                                                 \
+  BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
 #define BT_UUID_BRIGHTNESS BT_UUID_DECLARE_128(BT_UUID_BRIGHTNESS_VAL)
 
 /* ── Brightness write handler ───────────────────────────────────────────
@@ -163,24 +157,22 @@ static ssize_t write_alert_level(struct bt_conn *conn,
  */
 static ssize_t write_brightness(struct bt_conn *conn,
                                 const struct bt_gatt_attr *attr,
-                                const void *buf,
-                                uint16_t len,
-                                uint16_t offset,
+                                const void *buf, uint16_t len, uint16_t offset,
                                 uint8_t flags) {
-    if (len != 1) {
-        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
-    }
+  if (len != 1) {
+    return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+  }
 
-    uint8_t value = *((uint8_t *)buf);
-    if (value > 100) {
-        value = 100;  /* Clamp to valid brightness range */
-    }
+  uint8_t value = *((uint8_t *)buf);
+  if (value > 100) {
+    value = 100; /* Clamp to valid brightness range */
+  }
 
-    uint8_t *target = (uint8_t *)attr->user_data;
-    *target = value;
+  uint8_t *target = (uint8_t *)attr->user_data;
+  *target = value;
 
-    LOG_INF("Brightness set to: %d", value);
-    return len;
+  LOG_INF("Brightness set to: %d", value);
+  return len;
 }
 
 /* ── GATT service definition ────────────────────────────────────────────
@@ -201,20 +193,13 @@ static ssize_t write_brightness(struct bt_conn *conn,
  *   Write callback: write_alert_level  ◄── handles incoming alerts
  *   User data: NULL
  */
-BT_GATT_SERVICE_DEFINE(ias_svc,
-    BT_GATT_PRIMARY_SERVICE(BT_UUID_IAS),
-    BT_GATT_CHARACTERISTIC(BT_UUID_ALERT_LEVEL,
-                           BT_GATT_CHRC_WRITE_WITHOUT_RESP,
-                           BT_GATT_PERM_WRITE,
-                           NULL, 
-                           write_alert_level, 
-                           NULL),
-    BT_GATT_CHARACTERISTIC(BT_UUID_BRIGHTNESS,
-                           BT_GATT_CHRC_WRITE_WITHOUT_RESP,
-                           BT_GATT_PERM_WRITE,
-                           NULL,
-                           write_brightness,
-                           &g_brightness_level)  /* ◄── user_data */
+BT_GATT_SERVICE_DEFINE(
+    ias_svc, BT_GATT_PRIMARY_SERVICE(BT_UUID_IAS),
+    BT_GATT_CHARACTERISTIC(BT_UUID_ALERT_LEVEL, BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+                           BT_GATT_PERM_WRITE, NULL, write_alert_level, NULL),
+    BT_GATT_CHARACTERISTIC(BT_UUID_BRIGHTNESS, BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+                           BT_GATT_PERM_WRITE, NULL, write_brightness,
+                           &g_brightness_level) /* ◄── user_data */
 );
 
 /* ── Advertising parameters ─────────────────────────────────────────────
@@ -234,9 +219,10 @@ BT_GATT_SERVICE_DEFINE(ias_svc,
  *
  *   NULL (last param) – no directed advertising; broadcast to everyone.
  */
+/* Slow down the advertising interval to save battery */
 static const struct bt_le_adv_param adv_param = BT_LE_ADV_PARAM_INIT(
     BT_LE_ADV_OPT_CONN | BT_LE_ADV_OPT_SCANNABLE,
-    BT_GAP_ADV_FAST_INT_MIN_2, BT_GAP_ADV_FAST_INT_MAX_2, NULL);
+    BT_GAP_ADV_SLOW_INT_MIN, BT_GAP_ADV_SLOW_INT_MAX, NULL);
 
 /* ── Bluetooth class implementation ─────────────────────────────────────*/
 
@@ -261,13 +247,13 @@ Bluetooth::~Bluetooth() {}
  * Returns: 0 on success, negative errno on failure.
  */
 int Bluetooth::init() {
-    int err = bt_enable(NULL);
-    if (err) {
-        LOG_ERR("bt_enable failed (err %d)", err);
-    } else {
-        is_initialized = true;
-    }
-    return err;
+  int err = bt_enable(NULL);
+  if (err) {
+    LOG_ERR("bt_enable failed (err %d)", err);
+  } else {
+    is_initialized = true;
+  }
+  return err;
 }
 
 /*
@@ -284,7 +270,7 @@ int Bluetooth::init() {
  * happens when the phone triggers a "find my device" alert.
  */
 void Bluetooth::set_alert_callback(alert_callback_t cb) {
-    g_alert_cb = cb;  /* ◄── ALERT CALLBACK IS REGISTERED HERE */
+  g_alert_cb = cb; /* ◄── ALERT CALLBACK IS REGISTERED HERE */
 }
 
 /*
@@ -316,39 +302,41 @@ void Bluetooth::set_alert_callback(alert_callback_t cb) {
  * which is typically 20–60°C.
  */
 void Bluetooth::update_temperature(int32_t temp_celsius) {
-    /* Don't touch BLE if the stack hasn't been initialized yet. */
-    if (!is_initialized) return;
+  /* Don't touch BLE if the stack hasn't been initialized yet. */
+  if (!is_initialized)
+    return;
 
-    /* AD Flags: tell scanners this is a BLE-only, generally discoverable device. */
-    uint8_t flags = BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR;
+  /* AD Flags: tell scanners this is a BLE-only, generally discoverable device.
+   */
+  uint8_t flags = BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR;
 
-    /* Manufacturer-specific data: 2-byte company ID + 1-byte temperature.
-     * Company ID 0xFFFF is reserved for testing and won't conflict with
-     * real manufacturers. */
-    uint8_t mfg_data[] = { 0xFF, 0xFF, (uint8_t)temp_celsius };
+  /* Manufacturer-specific data: 2-byte company ID + 1-byte temperature.
+   * Company ID 0xFFFF is reserved for testing and won't conflict with
+   * real manufacturers. */
+  uint8_t mfg_data[] = {0xFF, 0xFF, (uint8_t)temp_celsius};
 
-    /* Build the main advertising data array. */
-    const struct bt_data ad[] = {
-        BT_DATA(BT_DATA_FLAGS, &flags, sizeof(flags)),
-        BT_DATA(BT_DATA_MANUFACTURER_DATA, mfg_data, sizeof(mfg_data)),
-    };
+  /* Build the main advertising data array. */
+  const struct bt_data ad[] = {
+      BT_DATA(BT_DATA_FLAGS, &flags, sizeof(flags)),
+      BT_DATA(BT_DATA_MANUFACTURER_DATA, mfg_data, sizeof(mfg_data)),
+  };
 
-    /* Build the scan response data (sent when a scanner requests more info). */
-    const struct bt_data sd[] = {
-        BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME,
-                sizeof(CONFIG_BT_DEVICE_NAME) - 1),
-    };
+  /* Build the scan response data (sent when a scanner requests more info). */
+  const struct bt_data sd[] = {
+      BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME,
+              sizeof(CONFIG_BT_DEVICE_NAME) - 1),
+  };
 
-    /* Try to start advertising.  If already advertising (-EALREADY),
-     * just update the payload with the new temperature instead. */
-    int err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
-    if (err == -EALREADY) {
-        err = bt_le_adv_update_data(ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
-    }
+  /* Try to start advertising.  If already advertising (-EALREADY),
+   * just update the payload with the new temperature instead. */
+  int err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+  if (err == -EALREADY) {
+    err = bt_le_adv_update_data(ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+  }
 
-    if (err) {
-        LOG_ERR("Advertising failed (err %d)", err);
-    } else {
-        LOG_INF("Temp: %d C", temp_celsius);
-    }
+  if (err) {
+    LOG_ERR("Advertising failed (err %d)", err);
+  } else {
+    LOG_INF("Temp: %d C", temp_celsius);
+  }
 }
