@@ -33,7 +33,7 @@ By default, Linux restricts direct access to raw USB devices for security purpos
 The ``60-openocd.rules`` file contains ``udev`` rules that tell Linux: *"When this specific debugging hardware is plugged in, grant normal users permission to access it."*
 
 **Resolution:**
-You don't need to keep the file sitting in your ``blinky`` folder. Linux needs the file to be placed in its system configuration directory. You must copy it by running:
+You don't need to keep the file sitting in your ``haykulFinderFirmware`` folder. Linux needs the file to be placed in its system configuration directory. You must copy it by running:
 
 .. code-block:: bash
 

@@ -4,7 +4,7 @@
         {
             "name": "Visual Debug (OpenOCD)",
             "cwd": "${workspaceFolder}",
-            "executable": "./build/blinky/zephyr/zephyr.elf",
+            "executable": "./build/haykulFinderFirmware/zephyr/zephyr.elf",
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "openocd",

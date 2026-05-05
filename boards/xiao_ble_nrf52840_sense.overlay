@@ -65,13 +65,34 @@
     };
 
     aliases {
-        pwm-led0 = &pwm_led0;
-        pwm-led1 = &pwm_led1;
-        pwm-led2 = &pwm_led2;
+        pwm-led0    = &pwm_led0;
+        pwm-led1    = &pwm_led1;
+        pwm-led2    = &pwm_led2;
+        /* The user button on the XIAO board (P0.18, active-low) */
+        user-button = &user_button;
+        /* Reuse P0.26 (red LED GPIO) as software status LED */
+        status-led  = &status_led_xiao;
+    };
+    /* XIAO user button: P0.18, active-low, pull-up. */
+    buttons {
+        compatible = "gpio-keys";
+        user_button: button_0 {
+            gpios = <&gpio0 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+            label = "User Button";
+        };
+    };
+
+    /* Status LED — plain GPIO on P0.26 (same physical pin as red PWM LED).
+     * Used for software blink patterns.  The PWM red channel is still
+     * available via pwm_led0 when buzzer feedback is needed. */
+    leds {
+        compatible = "gpio-leds";
+        status_led_xiao: led_status {
+            gpios = <&gpio0 26 GPIO_ACTIVE_LOW>;
+            label = "Status LED";
+        };
     };
 };
-
-
 
 &timer3 {
     status = "okay";

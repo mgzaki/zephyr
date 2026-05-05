@@ -1,7 +1,7 @@
 sample:
-  name: Blinky Sample
+  name: haykulFinderFirmware
 tests:
-  sample.basic.blinky:
+  sample.basic.haykulFinderFirmware:
     tags:
       - LED
       - gpio

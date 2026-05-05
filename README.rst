@@ -1,5 +1,5 @@
-.. zephyr:code-sample:: blinky
-   :name: Blinky
+.. zephyr:code-sample:: haykulFinderFirmware
+   :name: haykulFinderFirmware
    :relevant-api: gpio_interface
 
    Blink an LED forever using the GPIO API.
@@ -7,7 +7,7 @@
 Overview
 ********
 
-The Blinky sample blinks an LED forever using the :ref:`GPIO API <gpio_api>`.
+The haykulFinderFirmware project blinks an LED forever using the :ref:`GPIO API <gpio_api>`.
 
 The source code shows how to:
 
@@ -32,7 +32,7 @@ Your board must:
 Building and Running
 ********************
 
-Build and flash Blinky for the Seeed Studio XIAO nRF52840 Sense using the provided ``manage_device.sh`` script. This script acts as a universally reusable tool for managing Zephyr builds and flashing via the XIAO Debug Mate (CMSIS-DAP debugger).
+Build and flash haykulFinderFirmware for the Seeed Studio XIAO nRF52840 Sense using the provided ``manage_device.sh`` script. This script acts as a universally reusable tool for managing Zephyr builds and flashing via the XIAO Debug Mate (CMSIS-DAP debugger).
 
 First, make exactly sure the script is executable:
 
@@ -104,7 +104,7 @@ Build errors
 ************
 
 You will see a build error at the source code line defining the ``struct
-gpio_dt_spec led`` variable if you try to build Blinky for an unsupported
+gpio_dt_spec led`` variable if you try to build haykulFinderFirmware for an unsupported
 board.
 
 On GCC-based toolchains, the error looks like this:
