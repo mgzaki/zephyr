@@ -97,3 +97,9 @@
 &adc {
     status = "okay";
 };
+
+/* Enable the NFCT peripheral for NFC T2T tap-to-pair.
+ * Uses nRF52840 dedicated NFC pins P0.09/P0.10. */
+&nfct {
+    status = "okay";
+};
