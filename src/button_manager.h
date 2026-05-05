@@ -52,12 +52,24 @@ public:
      */
     void set_callbacks(double_click_cb_t dc_cb, long_press_cb_t lp_cb);
 
+    /**
+     * @brief Register the double-click callback individually.
+     * @param cb  Invoked when a double-click gesture is detected.
+     */
+    void set_double_click_callback(double_click_cb_t cb);
+
+    /**
+     * @brief Register the long-press callback individually.
+     * @param cb  Invoked when the button is held for LONG_PRESS_MS.
+     */
+    void set_long_press_callback(long_press_cb_t cb);
+
     /* ── Internal helpers called from static Zephyr work handlers ── */
     void handle_debounced_press(bool pressed);
     void handle_long_press_timeout();
     void handle_double_click_timeout();
 
-private:
+    /* ── Members accessed by static C callbacks (must be public) ── */
     /** Debounce delay in milliseconds. */
     static constexpr int DEBOUNCE_MS           = 20;
     /** Window within which two presses count as a double-click (ms). */
@@ -65,7 +77,10 @@ private:
     /** Minimum hold duration to trigger long-press (ms). */
     static constexpr int LONG_PRESS_MS          = 3000;
 
-    gpio_dt_spec btn_spec;
+    gpio_dt_spec     btn_spec;
+    k_work_delayable debounce_work;
+
+private:
     gpio_callback btn_cb_data;
 
     double_click_cb_t dc_cb;
@@ -76,7 +91,6 @@ private:
     /** True while button is physically held down. */
     bool button_held;
 
-    k_work_delayable debounce_work;
     k_work_delayable long_press_work;
     k_work_delayable double_click_work;
 };

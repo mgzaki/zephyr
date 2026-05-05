@@ -269,7 +269,7 @@ static void battery_thread_func(void *arg1, void *arg2, void *arg3)
     }
 }
 
-K_THREAD_DEFINE(battery_tid, 1024, battery_thread_func, NULL, NULL, NULL, 8, 0, 0);
+K_THREAD_DEFINE(battery_tid, 2048, battery_thread_func, NULL, NULL, NULL, 8, 0, 0);
 
 /* ── BLE Connection Polling Thread ──────────────────────────────────────── */
 
@@ -299,7 +299,7 @@ static void conn_poll_thread_func(void *arg1, void *arg2, void *arg3)
     }
 }
 
-K_THREAD_DEFINE(conn_poll_tid, 512, conn_poll_thread_func, NULL, NULL, NULL, 8, 0, 0);
+K_THREAD_DEFINE(conn_poll_tid, 1024, conn_poll_thread_func, NULL, NULL, NULL, 8, 0, 0);
 
 /* ── main() ──────────────────────────────────────────────────────────────── */
 
@@ -318,12 +318,12 @@ int main()
     }
 
     /* --- Battery Monitor --- */
-    if (battery.init() != 0) {
+    if (!battery.init()) {
         LOG_WRN("Battery monitor init failed — battery readings unavailable");
     }
 
     /* --- Status LED (scanning state on boot) --- */
-    if (led.init() != 0) {
+    if (!led.init()) {
         LOG_ERR("LED init failed");
     } else {
         led.set_mode(LedManager::Mode::BLINK_FAST);
@@ -332,7 +332,7 @@ int main()
     /* --- Button --- */
     button.set_double_click_callback(on_button_double_click);
     button.set_long_press_callback(on_button_long_press);
-    if (button.init() != 0) {
+    if (!button.init()) {
         LOG_ERR("Button init failed");
     }
 

@@ -68,6 +68,8 @@
         pwm-led0    = &pwm_led0;
         pwm-led1    = &pwm_led1;
         pwm-led2    = &pwm_led2;
+        /* No physical buzzer on XIAO; map to blue LED (P0.06) for visual feedback */
+        buzzer-pwm  = &pwm_led2;
         /* The user button on the XIAO board (P0.18, active-low) */
         user-button = &user_button;
         /* Reuse P0.26 (red LED GPIO) as software status LED */
@@ -95,5 +97,11 @@
 };
 
 &timer3 {
+    status = "okay";
+};
+
+/* Enable the NFCT peripheral so HAS_HW_NRF_NFCT is set and NFC_PLATFORM
+ * can compile the platform glue (nfc_platform_* symbols). */
+&nfct {
     status = "okay";
 };

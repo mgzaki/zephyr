@@ -53,6 +53,11 @@ public:
     uint8_t read_level_percent();
 
     /**
+     * @brief Return true after init() has succeeded.
+     */
+    bool is_ready() const;
+
+    /**
      * @brief Convenience: return true when level is at or below the low
      *        threshold defined by BATTERY_LOW_THRESHOLD_PCT.
      */

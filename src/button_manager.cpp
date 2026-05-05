@@ -139,6 +139,16 @@ void ButtonManager::set_callbacks(double_click_cb_t dc, long_press_cb_t lp)
     lp_cb = lp;
 }
 
+void ButtonManager::set_double_click_callback(double_click_cb_t cb)
+{
+    dc_cb = cb;
+}
+
+void ButtonManager::set_long_press_callback(long_press_cb_t cb)
+{
+    lp_cb = cb;
+}
+
 /* ── Internal state-machine helpers ─────────────────────────────────────── */
 
 /**

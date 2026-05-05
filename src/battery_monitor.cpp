@@ -39,7 +39,7 @@ static const struct adc_channel_cfg vdd_ch_cfg = {
     .reference        = ADC_REF_INTERNAL,
     .acquisition_time = ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40),
     .channel_id       = ADC_VDD_CHANNEL,
-    .input_positive   = SAADC_CH_PSELP_PSELP_VDD, /* Internal VDD */
+    .input_positive   = SAADC_CH_PSELP_PSELP_VDDHDIV5, /* VDDH÷5: tracks battery voltage before regulator */
 };
 
 /* ── Li-Po discharge table ───────────────────────────────────────────────── */
@@ -115,6 +115,11 @@ uint8_t BatteryMonitor::read_level_percent()
 
     LOG_DBG("VDD raw=%d, mV=%d", raw, mv_vdd);
     return mv_to_percent(mv_vdd);
+}
+
+bool BatteryMonitor::is_ready() const
+{
+    return initialised;
 }
 
 bool BatteryMonitor::is_low()

@@ -25,8 +25,9 @@ LOG_MODULE_REGISTER(nfc_manager, LOG_LEVEL_INF);
 
 #include <nfc_t2t_lib.h>
 #include <nfc/ndef/msg.h>
-#include <nfc/ndef/le_oob_rec.h>
-#include <nfc/ndef/aar_rec.h>
+#include <nfc/ndef/record.h>
+#include <nfc/ndef/payload_type_common.h>
+#include <nfc/ndef/launchapp_rec.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
 #include <string.h>
@@ -161,21 +162,30 @@ int NfcManager::init()
     /* Construct NDEF records. */
     NFC_NDEF_MSG_DEF(ndef_msg, 2U);
 
-    /* Record 0: BLE OOB MIME record. */
-    NFC_NDEF_LE_OOB_RECORD_DESC_DEF(oob_rec, oob_payload, (uint32_t)oob_len);
+    /* Record 0: BLE OOB MIME record using raw binary payload constructor.
+     * nfc_ndef_le_oob_rec_type_field = "application/vnd.bluetooth.le.oob"
+     * The payload already contains the Haykul UUID as AD type 0x07. */
+    NFC_NDEF_RECORD_BIN_DATA_DEF(oob_rec,
+        TNF_MEDIA_TYPE,
+        NULL, 0,
+        nfc_ndef_le_oob_rec_type_field,
+        sizeof(nfc_ndef_le_oob_rec_type_field),
+        oob_payload, (uint32_t)oob_len);
 
-    /* Record 1: Android Application Record. */
-    NFC_NDEF_AAR_RECORD_DESC_DEF(aar_rec, APP_PACKAGE);
+    /* Record 1: Android Application Record (NCS LaunchApp API). */
+    NFC_NDEF_ANDROID_LAUNCHAPP_RECORD_DESC_DEF(aar_rec,
+        (const uint8_t *)APP_PACKAGE,
+        sizeof(APP_PACKAGE) - 1U);
 
     int err = nfc_ndef_msg_record_add(&NFC_NDEF_MSG(ndef_msg),
-                                      &NFC_NDEF_LE_OOB_RECORD_DESC(oob_rec));
+                                      &NFC_NDEF_RECORD_BIN_DATA(oob_rec));
     if (err) {
         LOG_ERR("OOB record add failed (%d)", err);
         return err;
     }
 
     err = nfc_ndef_msg_record_add(&NFC_NDEF_MSG(ndef_msg),
-                                  &NFC_NDEF_AAR_RECORD_DESC(aar_rec));
+                                  &NFC_NDEF_ANDROID_LAUNCHAPP_RECORD_DESC(aar_rec));
     if (err) {
         LOG_ERR("AAR record add failed (%d)", err);
         return err;
